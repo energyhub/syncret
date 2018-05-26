@@ -1,0 +1,2 @@
+# syncret
+sync secrets
