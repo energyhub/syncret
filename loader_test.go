@@ -58,7 +58,7 @@ func Test_loader_Load(t *testing.T) {
 				decryptCmd:        "cat",
 			},
 			args{
-				"test_path.txt",
+				"test_path",
 				map[string]string{
 					"test_path.txt": "test_value",
 				},
@@ -75,7 +75,7 @@ func Test_loader_Load(t *testing.T) {
 				decryptCmd:        "cat",
 			},
 			args{
-				"test_path.txt",
+				"test_path",
 				map[string]string{
 					"test_path.txt":         "test_value",
 					"test_path.description": "a test value",
@@ -93,7 +93,7 @@ func Test_loader_Load(t *testing.T) {
 				decryptCmd:        "cat",
 			},
 			args{
-				"test_path.txt",
+				"test_path",
 				map[string]string{
 					"test_path.txt":     "test_value",
 					"test_path.pattern": "a test pattern",
@@ -111,26 +111,7 @@ func Test_loader_Load(t *testing.T) {
 				decryptCmd:        "cat",
 			},
 			args{
-				"test_path.txt",
-				map[string]string{
-					"test_path.txt":         "test_value",
-					"test_path.description": "a test description",
-					"test_path.pattern":     "a test pattern",
-				},
-			},
-			secret{Name: "test_path", Value: "test_value", Description: "a test description", Pattern: "a test pattern"},
-			false,
-		},
-		{
-			"finds all from description",
-			fields{
-				secretSuffix:      ".txt",
-				descriptionSuffix: ".description",
-				patternSuffix:     ".pattern",
-				decryptCmd:        "cat",
-			},
-			args{
-				"test_path.description",
+				"test_path",
 				map[string]string{
 					"test_path.txt":         "test_value",
 					"test_path.description": "a test description",
@@ -149,7 +130,7 @@ func Test_loader_Load(t *testing.T) {
 				decryptCmd:        "cat",
 			},
 			args{
-				"hi/test_path.description",
+				"hi/test_path",
 				map[string]string{
 					"hi/test_path.txt":         "test_value",
 					"hi/test_path.description": "a test description",
@@ -168,7 +149,7 @@ func Test_loader_Load(t *testing.T) {
 				decryptCmd:        "cat",
 			},
 			args{
-				"test_path.description",
+				"test_path",
 				map[string]string{
 					"test_path.description": "a test description",
 					"test_path.pattern":     "a test pattern",

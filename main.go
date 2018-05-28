@@ -61,7 +61,7 @@ func newLoader() (loader, error) {
 	return loader{
 		secretSuffix:      envSuffix("SYNCRET_SUFFIX", ".gpg"),
 		descriptionSuffix: envSuffix("SYNCRET_DESCRIPTION_SUFFIX", ".description"),
-		patternSuffix:     envSuffix("SYNCRET_PATTERN_SUFFIX", ".allowed-pattern"),
+		patternSuffix:     envSuffix("SYNCRET_PATTERN_SUFFIX", ".pattern"),
 		decryptCmd:        decryptMethod,
 		rootDir:           absRoot,
 		fsPrefix:          *prefix,
@@ -70,13 +70,23 @@ func newLoader() (loader, error) {
 }
 
 func sync(loader loader, paths []string, handler Handler) error {
+	seen := make(map[string]bool) // drop dupes
 	var secrets []secret
 	for _, path := range paths {
-		sec, err := loader.Load(path)
-		if err != nil {
-			return err
+		extless := loader.TrimExt(path)
+		if extless == "" {
+			return fmt.Errorf("unrecognized path: %v", path)
 		}
-		secrets = append(secrets, sec)
+
+		if !seen[extless] {
+			seen[extless] = true
+
+			sec, err := loader.Load(extless)
+			if err != nil {
+				return err
+			}
+			secrets = append(secrets, sec)
+		}
 	}
 
 	if len(secrets) == 0 {

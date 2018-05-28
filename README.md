@@ -3,3 +3,52 @@
 # syncret
 
 Sync encrypted secrets and their metadata from the local file system to AWS parameter store
+
+
+## Example:
+Given the following file structure:
+```
+secrets
+|_ prod
+   |_my-service
+        |_DB_URL.gpg
+        |_DB_URL.pattern
+        |_DB_URL.description
+        |_SECRET_KEY.gpg
+        |_SECRET_KEY.pattern
+        |_SECRET_KEY.description
+```
+
+Basic decryption logic on path in a `decrypt.sh` like:
+```bash
+#!/usr/bin/env bash
+
+set -e
+
+gpg --decrypt ${1}
+```
+
+The following command will print all the metadata about matching secrets:
+
+```bash
+SYNCRET_DECRYPT=decrypt.sh syncret -prefix secrets/ secrets/prod/my-service/*.gpg
+```
+
+And this command will install the secrets in AWS:
+
+```bash
+SYNCRET_DECRYPT=decrypt.sh syncret -prefix secrets/ secrets/prod/my-service/*.gpg
+```
+
+Any encryption scheme can be swapped out; only constraint is that `SYNCRET_DECRYPT` be a command on your path that takes as its first argument the file to decrypt and spits it out onto stdout.
+
+## Intended use case
+
+When used with version tracking as a push hook, `syncret` can provide continuous (and secure) deployment of secrets.
+
+Consider:
+
+```bash
+secrets_dir=secrets/
+git diff --name-only ${SHA_1} ${SHA_2} -- ${SECRETS_DIR} | syncret -prefix ${SECRETS_DIR}
+```

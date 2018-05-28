@@ -21,12 +21,11 @@ type loader struct {
 	trim              bool
 }
 
-func (l loader) Load(fname string) (secret, error) {
-	s := unextended(fname, l.secretSuffix, l.patternSuffix, l.descriptionSuffix)
-	if s == "" {
-		return secret{}, fmt.Errorf("unsupported path: %v", fname)
-	}
+func (l loader) TrimExt(fname string) string {
+	return unextended(fname, l.secretSuffix, l.patternSuffix, l.descriptionSuffix)
+}
 
+func (l loader) Load(s string) (secret, error) {
 	if !strings.HasPrefix(s, l.fsPrefix) {
 		return secret{}, fmt.Errorf("path doesn't have expected prefix %v: %v", l.fsPrefix, s)
 	}

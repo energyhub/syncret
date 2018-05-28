@@ -6,12 +6,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/ssm"
 	"github.com/aws/aws-sdk-go/service/ssm/ssmiface"
 	"io"
-	"text/template"
 )
-
-var secretTmpl = template.Must(template.New("secret").Parse("{{.Name}} | " +
-	"{{if .Description}}{{.Description}}{{else}}No description{{end}} | " +
-	"{{if .Pattern}}{{.Pattern}}{{else}}No pattern{{end}}\n"))
 
 type Handler interface {
 	Handle(secret secret) error
