@@ -1,0 +1,20 @@
+dist: trusty
+sudo: false
+language: go
+go:
+- '1.10'
+install:
+- make install
+- make dist
+script:
+- make test
+deploy:
+  provider: releases
+  api_key:
+    secure: yd1k7YSjQT18xrSLmUTgLhgsBtkRtAi/Ugp2vrx8lLMIjXHNNLqaPp1jWcUOrQGtxDUfObKtIZeVHdduMRF8BPSiRFPBMb46slD+DPXfbZRSisK5CkWGL0X7lfVBjo8aiTWRYksOMHlZJWkYudb2IP+4dd+ORQHoaDmpI5CJ0usCk9T+oPkMkYpTokEj6YoG3EmRf1dUWsmBxWL4g1sg6bnU9puscPfH7YcBojaYLjqVKxbUkSxk15o2D4pLuFzQ6SDC6OpVqvhSIrovGt0BUK/Odt82Fvw/4VBWfX4SZqapXWiU6xef9ssVe2ipZ622+AgEfyq9BvfjNvwKVaX9wpwX8GIkpv/6+fuNMkyH6Qg/7NwNGjp+f320XCTcOqwWILdzI71btrPNNUt4DnxhC9XiLYdmnB8l2vN26nOusedcIUeD4cA8gKJMA4L9OIxZxBSdIgEuD/+CvR39cD3ZX49NMrOg4zYFk57QLNuNISZ64VPhHalFBtpOUNPiMBgobvwikdysk2htuTRfYmPW9Z2maZVYUKeqpzPXaj/hUpPRRu5gu+zYvWk+sR1b9ERg1DEqkoM8g5tHPfS8EzwVZSItIq7+KXDu5AsRPA6ZxpRryA0qCq1yawIP0SxWD84NhUDqqra34c4C3vcDO1rk3nCjEFUWLqCLx+NM6/7e1tQ=
+  file: dist/*
+  on:
+    tags: true
+  file_glob: true
+  skip_cleanup: true
+
