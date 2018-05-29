@@ -54,7 +54,7 @@ Any encryption scheme can be swapped out; only constraint is that `SYNCRET_DECRY
 
 When used with version tracking as a push hook, `syncret` can provide continuous (and secure) deployment of secrets.
 
-The following command installs any modified or install secrets in the `secrets` directory:
+The following command installs any modified or added secrets in the `secrets` directory:
 
 ```bash
 git diff --diff-filter=d --name-only ${SHA_1} ${SHA_2} -- secrets/ | syncret -prefix secrets/
