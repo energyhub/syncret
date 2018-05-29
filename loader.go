@@ -21,11 +21,30 @@ type loader struct {
 	trim              bool
 }
 
-func (l loader) TrimExt(fname string) string {
-	return unextended(fname, l.secretSuffix, l.patternSuffix, l.descriptionSuffix)
+func (l loader) LoadAll(paths []string) ([]secret, error) {
+	var secrets []secret
+
+	seen := make(map[string]bool)
+	for _, p := range paths {
+		name := unextended(p, l.secretSuffix, l.patternSuffix, l.descriptionSuffix)
+		if name == "" {
+			return nil, fmt.Errorf("unrecognized path: %v", p)
+		}
+
+		if !seen[name] {
+			seen[name] = true
+			secret, err := l.load(name)
+			if err != nil {
+				return nil, err
+			}
+			secrets = append(secrets, secret)
+		}
+	}
+
+	return secrets, nil
 }
 
-func (l loader) Load(s string) (secret, error) {
+func (l loader) load(s string) (secret, error) {
 	if !strings.HasPrefix(s, l.fsPrefix) {
 		return secret{}, fmt.Errorf("path doesn't have expected prefix %v: %v", l.fsPrefix, s)
 	}

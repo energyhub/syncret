@@ -31,7 +31,7 @@ func testDir(t *testing.T) string {
 	return tmpdir
 }
 
-func Test_loader_Load(t *testing.T) {
+func Test_loader_LoadAll(t *testing.T) {
 	type fields struct {
 		secretSuffix      string
 		descriptionSuffix string
@@ -39,14 +39,14 @@ func Test_loader_Load(t *testing.T) {
 		decryptCmd        string
 	}
 	type args struct {
-		fname string
-		paths map[string]string
+		fnames []string
+		paths  map[string]string
 	}
 	tests := []struct {
 		name    string
 		fields  fields
 		args    args
-		want    secret
+		want    []secret
 		wantErr bool
 	}{
 		{
@@ -58,12 +58,12 @@ func Test_loader_Load(t *testing.T) {
 				decryptCmd:        "cat",
 			},
 			args{
-				"test_path",
+				[]string{"test_path.txt"},
 				map[string]string{
 					"test_path.txt": "test_value",
 				},
 			},
-			secret{Name: "test_path", Value: "test_value"},
+			[]secret{{Name: "test_path", Value: "test_value"}},
 			false,
 		},
 		{
@@ -75,13 +75,13 @@ func Test_loader_Load(t *testing.T) {
 				decryptCmd:        "cat",
 			},
 			args{
-				"test_path",
+				[]string{"test_path.txt"},
 				map[string]string{
 					"test_path.txt":         "test_value",
 					"test_path.description": "a test value",
 				},
 			},
-			secret{Name: "test_path", Value: "test_value", Description: "a test value"},
+			[]secret{{Name: "test_path", Value: "test_value", Description: "a test value"}},
 			false,
 		},
 		{
@@ -93,13 +93,13 @@ func Test_loader_Load(t *testing.T) {
 				decryptCmd:        "cat",
 			},
 			args{
-				"test_path",
+				[]string{"test_path.txt"},
 				map[string]string{
 					"test_path.txt":     "test_value",
 					"test_path.pattern": "a test pattern",
 				},
 			},
-			secret{Name: "test_path", Value: "test_value", Pattern: "a test pattern"},
+			[]secret{{Name: "test_path", Value: "test_value", Pattern: "a test pattern"}},
 			false,
 		},
 		{
@@ -111,14 +111,41 @@ func Test_loader_Load(t *testing.T) {
 				decryptCmd:        "cat",
 			},
 			args{
-				"test_path",
+				[]string{"test_path.txt"},
 				map[string]string{
 					"test_path.txt":         "test_value",
 					"test_path.description": "a test description",
 					"test_path.pattern":     "a test pattern",
 				},
 			},
-			secret{Name: "test_path", Value: "test_value", Description: "a test description", Pattern: "a test pattern"},
+			[]secret{{
+				Name:        "test_path",
+				Value:       "test_value",
+				Description: "a test description",
+				Pattern:     "a test pattern",
+			}},
+			false,
+		},
+		{
+			"drops dupes",
+			fields{
+				secretSuffix:      ".txt",
+				descriptionSuffix: ".description",
+				patternSuffix:     ".pattern",
+				decryptCmd:        "cat",
+			},
+			args{
+				[]string{"test_path.txt", "test_path2.txt", "test_path2.description"},
+				map[string]string{
+					"test_path.txt":          "test_value",
+					"test_path2.txt":         "a test pattern",
+					"test_path2.description": "a second test path",
+				},
+			},
+			[]secret{
+				{Name: "test_path", Value: "test_value"},
+				{Name: "test_path2", Value: "a test pattern", Description: "a second test path"},
+			},
 			false,
 		},
 		{
@@ -130,14 +157,19 @@ func Test_loader_Load(t *testing.T) {
 				decryptCmd:        "cat",
 			},
 			args{
-				"hi/test_path",
+				[]string{"hi/test_path.txt"},
 				map[string]string{
 					"hi/test_path.txt":         "test_value",
 					"hi/test_path.description": "a test description",
 					"hi/test_path.pattern":     "a test pattern",
 				},
 			},
-			secret{Name: "hi/test_path", Value: "test_value", Description: "a test description", Pattern: "a test pattern"},
+			[]secret{{
+				Name:        "hi/test_path",
+				Value:       "test_value",
+				Description: "a test description",
+				Pattern:     "a test pattern",
+			}},
 			false,
 		},
 		{
@@ -149,13 +181,13 @@ func Test_loader_Load(t *testing.T) {
 				decryptCmd:        "cat",
 			},
 			args{
-				"test_path",
+				[]string{"hi/test_path.txt"},
 				map[string]string{
 					"test_path.description": "a test description",
 					"test_path.pattern":     "a test pattern",
 				},
 			},
-			secret{},
+			nil,
 			true,
 		},
 	}
@@ -173,13 +205,13 @@ func Test_loader_Load(t *testing.T) {
 				decryptCmd:        tt.fields.decryptCmd,
 				rootDir:           tmpdir,
 			}
-			got, err := l.Load(tt.args.fname)
+			got, err := l.LoadAll(tt.args.fnames)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("loader.Load() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("loader.LoadAll() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("loader.Load() = %v, want %v", got, tt.want)
+				t.Errorf("loader.LoadAll() = %v, want %v", got, tt.want)
 			}
 		})
 	}

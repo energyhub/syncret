@@ -70,23 +70,9 @@ func newLoader() (loader, error) {
 }
 
 func sync(loader loader, paths []string, handler Handler) error {
-	seen := make(map[string]bool) // drop dupes
-	var secrets []secret
-	for _, path := range paths {
-		extless := loader.TrimExt(path)
-		if extless == "" {
-			return fmt.Errorf("unrecognized path: %v", path)
-		}
-
-		if !seen[extless] {
-			seen[extless] = true
-
-			sec, err := loader.Load(extless)
-			if err != nil {
-				return err
-			}
-			secrets = append(secrets, sec)
-		}
+	secrets, err := loader.LoadAll(paths)
+	if err != nil {
+		return err
 	}
 
 	if len(secrets) == 0 {
@@ -97,6 +83,7 @@ func sync(loader loader, paths []string, handler Handler) error {
 		if err := handler.Handle(secret); err != nil {
 			return err
 		}
+		log.Printf("Succesfully synced: %s", secret.Name)
 	}
 
 	return nil
