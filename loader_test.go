@@ -63,7 +63,7 @@ func Test_loader_LoadAll(t *testing.T) {
 					"test_path.txt": "test_value",
 				},
 			},
-			[]secret{{Name: "test_path", Value: "test_value"}},
+			[]secret{{Name: "/test_path", Value: "test_value"}},
 			false,
 		},
 		{
@@ -81,7 +81,7 @@ func Test_loader_LoadAll(t *testing.T) {
 					"test_path.description": "a test value",
 				},
 			},
-			[]secret{{Name: "test_path", Value: "test_value", Description: "a test value"}},
+			[]secret{{Name: "/test_path", Value: "test_value", Description: "a test value"}},
 			false,
 		},
 		{
@@ -99,7 +99,7 @@ func Test_loader_LoadAll(t *testing.T) {
 					"test_path.pattern": "a test pattern",
 				},
 			},
-			[]secret{{Name: "test_path", Value: "test_value", Pattern: "a test pattern"}},
+			[]secret{{Name: "/test_path", Value: "test_value", Pattern: "a test pattern"}},
 			false,
 		},
 		{
@@ -119,7 +119,7 @@ func Test_loader_LoadAll(t *testing.T) {
 				},
 			},
 			[]secret{{
-				Name:        "test_path",
+				Name:        "/test_path",
 				Value:       "test_value",
 				Description: "a test description",
 				Pattern:     "a test pattern",
@@ -143,8 +143,8 @@ func Test_loader_LoadAll(t *testing.T) {
 				},
 			},
 			[]secret{
-				{Name: "test_path", Value: "test_value"},
-				{Name: "test_path2", Value: "a test pattern", Description: "a second test path"},
+				{Name: "/test_path", Value: "test_value"},
+				{Name: "/test_path2", Value: "a test pattern", Description: "a second test path"},
 			},
 			false,
 		},
@@ -165,7 +165,7 @@ func Test_loader_LoadAll(t *testing.T) {
 				},
 			},
 			[]secret{{
-				Name:        "hi/test_path",
+				Name:        "/hi/test_path",
 				Value:       "test_value",
 				Description: "a test description",
 				Pattern:     "a test pattern",

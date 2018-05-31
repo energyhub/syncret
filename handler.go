@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/ssm"
 	"github.com/aws/aws-sdk-go/service/ssm/ssmiface"
 	"io"
@@ -21,6 +22,7 @@ func (s *Committer) Handle(secret secret) error {
 		AllowedPattern: &secret.Pattern,
 		Description:    &secret.Description,
 		Value:          &secret.Value,
+		Type:           aws.String(ssm.ParameterTypeSecureString),
 		Name:           &secret.Name,
 	}
 

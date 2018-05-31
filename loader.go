@@ -65,8 +65,13 @@ func (l loader) load(s string) (secret, error) {
 		return secret{}, err
 	}
 
+	name := s[len(l.fsPrefix):]
+	if !strings.HasPrefix(name, "/") {
+		name = "/" + name
+	}
+
 	return secret{
-		Name:        s[len(l.fsPrefix):],
+		Name:        name,
 		Value:       l.sanitize(secVal),
 		Description: l.sanitize(description),
 		Pattern:     l.sanitize(pattern),
