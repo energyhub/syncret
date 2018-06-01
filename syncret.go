@@ -76,7 +76,7 @@ func sync(loader loader, paths []string, handler Handler) error {
 	}
 
 	if len(secrets) == 0 {
-		return fmt.Errorf("no secrets found")
+		return nil
 	}
 
 	for _, secret := range secrets {
