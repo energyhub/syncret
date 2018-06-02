@@ -3,11 +3,22 @@ sudo: false
 language: go
 go:
 - '1.10'
+
+env:
+  global:
+    # CODACY_TOKEN
+    - secure: "RExXZyxgB1BqdJ7ZdYx5hCyvzPA3W5eR/iLRCWusoHgxEwKKTDO6qcRSsdMfczDqrBtNj4uoIFG+4ZvEb7QpFeCoDA9TX9QlPvcEuzlPSBoSH1qKjA3Ca0V85KfzmdjGTcG62bUJLzGskqGPcHDaJtU7Me/nGr7mtsh6nzDxGNoi/hUgT+gcUofr5wBel+Vo759vZIUnC7mjSboafu7f587ru1Bamc2xT1vUckW2hPfBKoseiq4aoYIeu04onm6Nip4UQzPRCxuQiev3d57csF+UmO66pxUadMAad1SxEiDS424XVWJa0vAgJBgH4Fn8bI+qxprPmipZ2XNEv/kqlMqzFfZZnEod/8nAQ15uNfLMGEtQX1cCQZJ0Efl3DbRRlSIm00Vf1cgRWHREezhWv9XDY2kmagVpRtG5zDMB0u3yD9eHmwNsLTzC/mLi7ZyWzn/BaU74klWJ7s2NVPHDTw3XORl2ZiFO0ylQAt5m7Tm58Yx4tl7y6OG380gZKEBCqItSsp9V6guhO9DdjmuDPwRH9WbVoZNkiISBNTyWfJKfxUwMzqciA/Mf4T16tpjZC8xkycTvL1vTzX1sW3ig2+XBAkI6P4R03YYCE+uW0jHE/x/bvWqEbLP39d3zgsLFVdLACpyN+uXIELyj0sOHF7a+rnF/wVqiTQ30VbiED4U="
+
 install:
 - make install
 - make dist
+# for reporting coverage to codacy
+- go get -u github.com/schrej/godacov
+
 script:
 - make test
+- godacov -t "${CODACY_TOKEN}" -r ./coverage.out -c "${TRAVIS_COMMIT}"
+
 deploy:
   provider: releases
   api_key:
