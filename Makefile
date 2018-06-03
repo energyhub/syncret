@@ -5,10 +5,17 @@ clean:
 
 install:
 	go get -u github.com/kardianos/govendor
+	go get -u golang.org/x/lint/golint
 	govendor sync
 
 test:
 	go test -coverprofile=coverage.out -v ./...
+
+lint:
+	golint $(shell go list ./... | grep -v /vendor)
+
+vet:
+	go vet ./...
 
 dist:
 	mkdir dist

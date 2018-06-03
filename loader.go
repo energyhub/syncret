@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path"
+	"path/filepath"
 	"strings"
 	"unicode"
 )
@@ -19,6 +20,40 @@ type loader struct {
 	rootDir           string
 	fsPrefix          string
 	trim              bool
+}
+
+func newLoader(env map[string]string, rootDir string, prefix string, trim bool) (loader, error) {
+	envSuffix := func(name string, defaultVal string) string {
+		suffix := strings.TrimLeft(env[name], ".")
+		if suffix == "" {
+			return defaultVal
+		}
+		return "." + suffix
+	}
+
+	decryptMethod := "cat"
+	if method, ok := env["SYNCRET_DECRYPT"]; ok {
+		decryptMethod = method
+	}
+
+	absRoot := ""
+	if rootDir != "" {
+		root, err := filepath.Abs(rootDir)
+		if err != nil {
+			return loader{}, fmt.Errorf("error finding absolute path for %v: %v", rootDir, err)
+		}
+		absRoot = root
+	}
+
+	return loader{
+		secretSuffix:      envSuffix("SYNCRET_SUFFIX", ".gpg"),
+		descriptionSuffix: envSuffix("SYNCRET_DESCRIPTION_SUFFIX", ".description"),
+		patternSuffix:     envSuffix("SYNCRET_PATTERN_SUFFIX", ".pattern"),
+		decryptCmd:        decryptMethod,
+		rootDir:           absRoot,
+		fsPrefix:          prefix,
+		trim:              trim,
+	}, nil
 }
 
 func (l loader) LoadAll(paths []string) ([]secret, error) {

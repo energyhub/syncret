@@ -9,15 +9,15 @@ import (
 	"io"
 )
 
-type Handler interface {
+type handler interface {
 	Handle(secret secret) error
 }
 
-type Committer struct {
+type committer struct {
 	ssmiface.SSMAPI
 }
 
-func (s *Committer) Handle(secret secret) error {
+func (s *committer) Handle(secret secret) error {
 	input := &ssm.PutParameterInput{
 		AllowedPattern: &secret.Pattern,
 		Description:    &secret.Description,
@@ -33,17 +33,17 @@ func (s *Committer) Handle(secret secret) error {
 	return nil
 }
 
-func NewPrinter(writer io.Writer) *Printer {
+func newPrinter(writer io.Writer) *printer {
 	encoder := json.NewEncoder(writer)
-	return &Printer{
+	return &printer{
 		encoder,
 	}
 }
 
-type Printer struct {
+type printer struct {
 	*json.Encoder
 }
 
-func (s *Printer) Handle(secret secret) error {
+func (s *printer) Handle(secret secret) error {
 	return s.Encode(secret)
 }

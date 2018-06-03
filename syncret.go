@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/ssm"
+	"io"
 	"log"
 	"os"
-	"path/filepath"
 	"strings"
 )
 
@@ -35,41 +35,23 @@ func init() {
 	}
 }
 
-func newLoader() (loader, error) {
-	envSuffix := func(name string, defaultVal string) string {
-		suffix := strings.TrimLeft(os.Getenv(name), ".")
-		if suffix == "" {
-			return defaultVal
+func run(env map[string]string, rootDir, prefix string, trim bool, in io.Reader, handler handler) error {
+	var paths []string
+	if len(flag.Args()) > 0 {
+		paths = flag.Args()
+	} else {
+		log.Println("Reading secret paths from stdin...")
+		for scanner := bufio.NewScanner(in); scanner.Scan(); {
+			paths = append(paths, scanner.Text())
 		}
-		return "." + suffix
+	}
+	log.Printf("Found %d paths", len(paths))
+
+	loader, err := newLoader(env, rootDir, prefix, trim)
+	if err != nil {
+		return fmt.Errorf("error creating loader: %v", err)
 	}
 
-	decryptMethod := "cat"
-	if method, ok := os.LookupEnv("SYNCRET_DECRYPT"); ok {
-		decryptMethod = method
-	}
-
-	absRoot := ""
-	if *rootDir != "" {
-		root, err := filepath.Abs(*rootDir)
-		if err != nil {
-			return loader{}, fmt.Errorf("error finding absolute path for %v: %v", *rootDir, err)
-		}
-		absRoot = root
-	}
-
-	return loader{
-		secretSuffix:      envSuffix("SYNCRET_SUFFIX", ".gpg"),
-		descriptionSuffix: envSuffix("SYNCRET_DESCRIPTION_SUFFIX", ".description"),
-		patternSuffix:     envSuffix("SYNCRET_PATTERN_SUFFIX", ".pattern"),
-		decryptCmd:        decryptMethod,
-		rootDir:           absRoot,
-		fsPrefix:          *prefix,
-		trim:              *trim,
-	}, nil
-}
-
-func sync(loader loader, paths []string, handler Handler) error {
 	secrets, err := loader.LoadAll(paths)
 	if err != nil {
 		return err
@@ -83,7 +65,7 @@ func sync(loader loader, paths []string, handler Handler) error {
 		if err := handler.Handle(secret); err != nil {
 			return err
 		}
-		log.Printf("Succesfully synced: %s", secret.Name)
+		log.Printf("Successfully synced: %s", secret.Name)
 	}
 
 	return nil
@@ -92,30 +74,20 @@ func sync(loader loader, paths []string, handler Handler) error {
 func main() {
 	flag.Parse()
 
-	var handler Handler
+	env := make(map[string]string)
+	for _, val := range os.Environ() {
+		parts := strings.SplitN(val, "=", 1)
+		env[parts[0]] = parts[1]
+	}
+
+	var handler handler
 	if *commit {
-		handler = &Committer{ssm.New(session.Must(session.NewSession()))}
+		handler = &committer{ssm.New(session.Must(session.NewSession()))}
 	} else {
-		handler = NewPrinter(os.Stdout)
+		handler = newPrinter(os.Stdout)
 	}
 
-	var paths []string
-	if len(flag.Args()) > 0 {
-		paths = flag.Args()
-	} else {
-		log.Println("Reading secret paths from stdin...")
-		for scanner := bufio.NewScanner(os.Stdin); scanner.Scan(); {
-			paths = append(paths, scanner.Text())
-		}
-	}
-	log.Printf("Found %d paths", len(paths))
-
-	loader, err := newLoader()
-	if err != nil {
-		log.Fatalf("Error creating loader: %v", err)
-	}
-
-	if err := sync(loader, paths, handler); err != nil {
-		log.Fatalf("Failed syncing: %v", err)
+	if err := run(env, *rootDir, *prefix, *trim, os.Stdin, handler); err != nil {
+		log.Fatal(err)
 	}
 }
