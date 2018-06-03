@@ -5,7 +5,6 @@ clean:
 
 install:
 	go get -u github.com/kardianos/govendor
-	go get -u golang.org/x/lint/golint
 	govendor sync
 
 test:
