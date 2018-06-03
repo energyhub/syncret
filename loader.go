@@ -7,9 +7,24 @@ import (
 	"os"
 	"os/exec"
 	"path"
+	"path/filepath"
 	"strings"
 	"unicode"
 )
+
+const (
+	decryptEnvVar = "SYNCRET_DECRYPT"
+	secretEnvVar = "SYNCRET_SUFFIX"
+	descriptionEnvVar = "SYNCRET_DESCRIPTION_SUFFX"
+	patternEnvVar = "SYNCRET_PATTERN_SUFFX"
+)
+
+var defaults = map[string]string {
+	decryptEnvVar: "cat",
+	secretEnvVar: ".gpg",
+	descriptionEnvVar: ".description",
+	patternEnvVar: ".pattern",
+}
 
 type loader struct {
 	secretSuffix      string
@@ -19,6 +34,40 @@ type loader struct {
 	rootDir           string
 	fsPrefix          string
 	trim              bool
+}
+
+func newLoader(env map[string]string, rootDir string, prefix string, trim bool) (loader, error) {
+	envSuffix := func(name string, defaultVal string) string {
+		suffix := strings.TrimLeft(env[name], ".")
+		if suffix == "" {
+			return defaultVal
+		}
+		return "." + suffix
+	}
+
+	decryptMethod := defaults[decryptEnvVar]
+	if method, ok := env[decryptEnvVar]; ok {
+		decryptMethod = method
+	}
+
+	absRoot := ""
+	if rootDir != "" {
+		root, err := filepath.Abs(rootDir)
+		if err != nil {
+			return loader{}, fmt.Errorf("error finding absolute path for %v: %v", rootDir, err)
+		}
+		absRoot = root
+	}
+
+	return loader{
+		secretSuffix:      envSuffix(secretEnvVar, defaults[secretEnvVar]),
+		descriptionSuffix: envSuffix(descriptionEnvVar, defaults[descriptionEnvVar]),
+		patternSuffix:     envSuffix(patternEnvVar, defaults[patternEnvVar]),
+		decryptCmd:        decryptMethod,
+		rootDir:           absRoot,
+		fsPrefix:          prefix,
+		trim:              trim,
+	}, nil
 }
 
 func (l loader) LoadAll(paths []string) ([]secret, error) {

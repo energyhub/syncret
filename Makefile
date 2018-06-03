@@ -10,6 +10,12 @@ install:
 test:
 	go test -coverprofile=coverage.out -v ./...
 
+lint:
+	golint $(shell go list ./... | grep -v /vendor)
+
+vet:
+	go vet ./...
+
 dist:
 	mkdir dist
 	GOOS=darwin GOARCH=amd64 CGO_ENABLED=0 go build -o dist/syncret-darwin-amd64

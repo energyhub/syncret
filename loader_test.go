@@ -391,3 +391,50 @@ func Test_unextended(t *testing.T) {
 		})
 	}
 }
+
+func Test_newLoader(t *testing.T) {
+	type args struct {
+		env     map[string]string
+		rootDir string
+		prefix  string
+		trim    bool
+	}
+	tests := []struct {
+		name    string
+		args    args
+		want    loader
+		wantErr bool
+	}{
+		{
+			"defaults",
+			args{
+				map[string]string{},
+				"",
+				"",
+				true,
+			},
+			loader{
+				".gpg",
+				".description",
+				".pattern",
+				"cat",
+				"",
+				"",
+				true,
+			},
+			false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := newLoader(tt.args.env, tt.args.rootDir, tt.args.prefix, tt.args.trim)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("newLoader() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("newLoader() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
