@@ -35,7 +35,7 @@ func init() {
 	}
 }
 
-func run(env map[string]string, rootDir, prefix string, trim bool, in io.Reader, handler handler) error {
+func run(loader loader, in io.Reader, handler handler) error {
 	var paths []string
 	if len(flag.Args()) > 0 {
 		paths = flag.Args()
@@ -46,11 +46,6 @@ func run(env map[string]string, rootDir, prefix string, trim bool, in io.Reader,
 		}
 	}
 	log.Printf("Found %d paths", len(paths))
-
-	loader, err := newLoader(env, rootDir, prefix, trim)
-	if err != nil {
-		return fmt.Errorf("error creating loader: %v", err)
-	}
 
 	secrets, err := loader.LoadAll(paths)
 	if err != nil {
@@ -71,13 +66,21 @@ func run(env map[string]string, rootDir, prefix string, trim bool, in io.Reader,
 	return nil
 }
 
+func envMap(environ []string) map[string]string {
+	env := make(map[string]string)
+	for _, val := range environ {
+		parts := strings.SplitN(val, "=", 2)
+		env[parts[0]] = parts[1]
+	}
+	return env
+}
+
 func main() {
 	flag.Parse()
 
-	env := make(map[string]string)
-	for _, val := range os.Environ() {
-		parts := strings.SplitN(val, "=", 1)
-		env[parts[0]] = parts[1]
+	loader, err := newLoader(envMap(os.Environ()), *rootDir, *prefix, *trim)
+	if err != nil {
+		log.Fatalf("Error creating loader: %v", err)
 	}
 
 	var handler handler
@@ -87,7 +90,7 @@ func main() {
 		handler = newPrinter(os.Stdout)
 	}
 
-	if err := run(env, *rootDir, *prefix, *trim, os.Stdin, handler); err != nil {
+	if err := run(loader, os.Stdin, handler); err != nil {
 		log.Fatal(err)
 	}
 }

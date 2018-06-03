@@ -12,6 +12,20 @@ import (
 	"unicode"
 )
 
+const (
+	decryptEnvVar = "SYNCRET_DECRYPT"
+	secretEnvVar = "SYNCRET_SUFFIX"
+	descriptionEnvVar = "SYNCRET_DESCRIPTION_SUFFX"
+	patternEnvVar = "SYNCRET_PATTERN_SUFFX"
+)
+
+var defaults = map[string]string {
+	decryptEnvVar: "cat",
+	secretEnvVar: ".gpg",
+	descriptionEnvVar: ".description",
+	patternEnvVar: ".pattern",
+}
+
 type loader struct {
 	secretSuffix      string
 	descriptionSuffix string
@@ -31,8 +45,8 @@ func newLoader(env map[string]string, rootDir string, prefix string, trim bool) 
 		return "." + suffix
 	}
 
-	decryptMethod := "cat"
-	if method, ok := env["SYNCRET_DECRYPT"]; ok {
+	decryptMethod := defaults[decryptEnvVar]
+	if method, ok := env[decryptEnvVar]; ok {
 		decryptMethod = method
 	}
 
@@ -46,9 +60,9 @@ func newLoader(env map[string]string, rootDir string, prefix string, trim bool) 
 	}
 
 	return loader{
-		secretSuffix:      envSuffix("SYNCRET_SUFFIX", ".gpg"),
-		descriptionSuffix: envSuffix("SYNCRET_DESCRIPTION_SUFFIX", ".description"),
-		patternSuffix:     envSuffix("SYNCRET_PATTERN_SUFFIX", ".pattern"),
+		secretSuffix:      envSuffix(secretEnvVar, defaults[secretEnvVar]),
+		descriptionSuffix: envSuffix(descriptionEnvVar, defaults[descriptionEnvVar]),
+		patternSuffix:     envSuffix(patternEnvVar, defaults[patternEnvVar]),
 		decryptCmd:        decryptMethod,
 		rootDir:           absRoot,
 		fsPrefix:          prefix,
