@@ -4,8 +4,6 @@ import (
 	"bufio"
 	"flag"
 	"fmt"
-	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/aws/aws-sdk-go/service/ssm"
 	"io"
 	"log"
 	"os"
@@ -15,9 +13,19 @@ import (
 type secret struct {
 	Name        string `json:"name"`
 	Value       string `json:"-"`
-	Description string `json:"description"`
-	Pattern     string `json:"pattern"`
+	Description string `json:"description,omitempty"`
+	Pattern     string `json:"pattern,omitempty"`
 }
+
+const doc = `Usage of %s [FILE ...]:
+
+Synchronizes a directory of encrypted secrets and metadata with AWS's parameter store.
+
+By default, just prints metadata to stdout; provide the -commit flag to upload.
+				
+If files are provided as arguments, they will be used; otherwise, paths will be read from stdin.
+
+`
 
 var commit = flag.Bool("commit", false, "Sync changes to the parameter store rather than just printing metadata")
 var prefix = flag.String("prefix", "", "A prefix present in the FS but not in the parameter store")
@@ -26,27 +34,25 @@ var rootDir = flag.String("root", "", "Directory relative to which paths are int
 
 func init() {
 	flag.Usage = func() {
-		fmt.Fprintf(flag.CommandLine.Output(), "Usage of %s [FILE ...]:\n\n", os.Args[0])
-		fmt.Fprint(flag.CommandLine.Output(),
-			"Synchronizes a directory of encrypted secrets and metadata with AWS's parameter store.\n\n"+
-				"By default, just prints metadata to stdout; provide the -commit flag to upload.\n\n"+
-				"If files are provided as arguments, they will be used; otherwise, paths will be read from stdin.\n\n")
+		fmt.Fprintf(flag.CommandLine.Output(), doc, os.Args[0])
 		flag.PrintDefaults()
 	}
 }
 
-func run(loader loader, in io.Reader, handler handler) error {
+func getPaths(in io.Reader, args []string) []string {
 	var paths []string
-	if len(flag.Args()) > 0 {
-		paths = flag.Args()
+	if len(args) > 0 {
+		paths = args
 	} else {
 		log.Println("Reading secret paths from stdin...")
 		for scanner := bufio.NewScanner(in); scanner.Scan(); {
 			paths = append(paths, scanner.Text())
 		}
 	}
-	log.Printf("Found %d paths", len(paths))
+	return paths
+}
 
+func run(loader loader, handler handler, paths []string) error {
 	secrets, err := loader.LoadAll(paths)
 	if err != nil {
 		return err
@@ -80,17 +86,20 @@ func main() {
 
 	loader, err := newLoader(envMap(os.Environ()), *rootDir, *prefix, *trim)
 	if err != nil {
-		log.Fatalf("Error creating loader: %v", err)
+		log.Fatalf("Error creating fsLoader: %v", err)
 	}
 
 	var handler handler
 	if *commit {
-		handler = &committer{ssm.New(session.Must(session.NewSession()))}
+		handler = newCommitter()
 	} else {
 		handler = newPrinter(os.Stdout)
 	}
 
-	if err := run(loader, os.Stdin, handler); err != nil {
+	paths := getPaths(os.Stdin, flag.Args())
+	log.Printf("Found %d paths", len(paths))
+
+	if err := run(loader, handler, paths); err != nil {
 		log.Fatal(err)
 	}
 }

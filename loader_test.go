@@ -198,7 +198,7 @@ func Test_loader_LoadAll(t *testing.T) {
 
 			setUpFs(tmpdir, tt.args.paths)
 
-			l := loader{
+			l := fsLoader{
 				secretSuffix:      tt.fields.secretSuffix,
 				descriptionSuffix: tt.fields.descriptionSuffix,
 				patternSuffix:     tt.fields.patternSuffix,
@@ -207,11 +207,11 @@ func Test_loader_LoadAll(t *testing.T) {
 			}
 			got, err := l.LoadAll(tt.args.fnames)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("loader.LoadAll() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("fsLoader.LoadAll() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("loader.LoadAll() = %v, want %v", got, tt.want)
+				t.Errorf("fsLoader.LoadAll() = %v, want %v", got, tt.want)
 			}
 		})
 	}
@@ -402,7 +402,7 @@ func Test_newLoader(t *testing.T) {
 	tests := []struct {
 		name    string
 		args    args
-		want    loader
+		want    fsLoader
 		wantErr bool
 	}{
 		{
@@ -413,7 +413,7 @@ func Test_newLoader(t *testing.T) {
 				"",
 				true,
 			},
-			loader{
+			fsLoader{
 				".gpg",
 				".description",
 				".pattern",
@@ -421,6 +421,30 @@ func Test_newLoader(t *testing.T) {
 				"",
 				"",
 				true,
+			},
+			false,
+		},
+		{
+			"overrides",
+			args{
+				map[string]string{
+					decryptEnvVar:     "gpg",
+					secretEnvVar:      ".txt",
+					descriptionEnvVar: ".desc",
+					patternEnvVar:     ".patt",
+				},
+				"/tmp",
+				"blah/",
+				false,
+			},
+			fsLoader{
+				".txt",
+				".desc",
+				".patt",
+				"gpg",
+				"/tmp",
+				"blah/",
+				false,
 			},
 			false,
 		},

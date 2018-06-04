@@ -13,20 +13,24 @@ import (
 )
 
 const (
-	decryptEnvVar = "SYNCRET_DECRYPT"
-	secretEnvVar = "SYNCRET_SUFFIX"
+	decryptEnvVar     = "SYNCRET_DECRYPT"
+	secretEnvVar      = "SYNCRET_SUFFIX"
 	descriptionEnvVar = "SYNCRET_DESCRIPTION_SUFFX"
-	patternEnvVar = "SYNCRET_PATTERN_SUFFX"
+	patternEnvVar     = "SYNCRET_PATTERN_SUFFX"
 )
 
-var defaults = map[string]string {
-	decryptEnvVar: "cat",
-	secretEnvVar: ".gpg",
+var defaults = map[string]string{
+	decryptEnvVar:     "cat",
+	secretEnvVar:      ".gpg",
 	descriptionEnvVar: ".description",
-	patternEnvVar: ".pattern",
+	patternEnvVar:     ".pattern",
 }
 
-type loader struct {
+type loader interface {
+	LoadAll(paths []string) ([]secret, error)
+}
+
+type fsLoader struct {
 	secretSuffix      string
 	descriptionSuffix string
 	patternSuffix     string
@@ -54,12 +58,12 @@ func newLoader(env map[string]string, rootDir string, prefix string, trim bool) 
 	if rootDir != "" {
 		root, err := filepath.Abs(rootDir)
 		if err != nil {
-			return loader{}, fmt.Errorf("error finding absolute path for %v: %v", rootDir, err)
+			return fsLoader{}, fmt.Errorf("error finding absolute path for %v: %v", rootDir, err)
 		}
 		absRoot = root
 	}
 
-	return loader{
+	return fsLoader{
 		secretSuffix:      envSuffix(secretEnvVar, defaults[secretEnvVar]),
 		descriptionSuffix: envSuffix(descriptionEnvVar, defaults[descriptionEnvVar]),
 		patternSuffix:     envSuffix(patternEnvVar, defaults[patternEnvVar]),
@@ -70,7 +74,7 @@ func newLoader(env map[string]string, rootDir string, prefix string, trim bool) 
 	}, nil
 }
 
-func (l loader) LoadAll(paths []string) ([]secret, error) {
+func (l fsLoader) LoadAll(paths []string) ([]secret, error) {
 	var secrets []secret
 
 	seen := make(map[string]bool)
@@ -93,7 +97,7 @@ func (l loader) LoadAll(paths []string) ([]secret, error) {
 	return secrets, nil
 }
 
-func (l loader) load(s string) (secret, error) {
+func (l fsLoader) load(s string) (secret, error) {
 	if !strings.HasPrefix(s, l.fsPrefix) {
 		return secret{}, fmt.Errorf("path doesn't have expected prefix %v: %v", l.fsPrefix, s)
 	}
@@ -127,14 +131,14 @@ func (l loader) load(s string) (secret, error) {
 	}, nil
 }
 
-func (l loader) resolve(p string) string {
+func (l fsLoader) resolve(p string) string {
 	if l.rootDir != "" {
 		return path.Join(l.rootDir, p)
 	}
 	return p
 }
 
-func (l loader) sanitize(b []byte) string {
+func (l fsLoader) sanitize(b []byte) string {
 	if l.trim {
 		return strings.TrimRightFunc(string(b), unicode.IsSpace)
 	}
