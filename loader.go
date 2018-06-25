@@ -33,18 +33,8 @@ var (
 )
 
 // instantiates a new loader from CLI flags and the OS environ
-func newLoader() (loader, error) {
-	return doNewLoader(newOptions(envMap(os.Environ()), *prefix, *rootDir, *trim))
-}
-
-type options struct {
-	secretSuffix      string
-	descriptionSuffix string
-	patternSuffix     string
-	decryptCmd        string
-	fsPrefix          string
-	rootDir           string
-	trim              bool
+func newLoader() (loader) {
+	return doNewLoader(envMap(os.Environ()), *prefix, *rootDir, *trim)
 }
 
 // the basic implementation of a loader which loads stuff from the FS (the only real impl)
@@ -54,8 +44,8 @@ type fsLoader struct {
 	patternSuffix     string
 	decryptCmd        string
 	fsPrefix          string
-	resolve           func(p string) string
-	sanitize          func(b []byte) string
+	rootDir           string
+	trim              bool
 }
 
 func (l fsLoader) LoadAll(paths []string) ([]secret, error) {
@@ -88,18 +78,18 @@ func (l fsLoader) load(s string) (secret, error) {
 		return secret{}, fmt.Errorf("path doesn't have expected prefix %v: %v", l.fsPrefix, s)
 	}
 
-	secPath := l.resolve(s + l.secretSuffix)
+	secPath := resolve(l.rootDir, s+l.secretSuffix)
 	secVal, err := decrypt(l.decryptCmd, secPath)
 	if err != nil {
 		return secret{}, fmt.Errorf("error loading %v: %v", secPath, err)
 	}
 
-	description, err := readVal(l.resolve(s + l.descriptionSuffix))
+	description, err := readVal(resolve(l.rootDir, s+l.descriptionSuffix))
 	if err != nil {
 		return secret{}, err
 	}
 
-	pattern, err := readVal(l.resolve(s + l.patternSuffix))
+	pattern, err := readVal(resolve(l.rootDir, s+l.patternSuffix))
 	if err != nil {
 		return secret{}, err
 	}
@@ -111,14 +101,14 @@ func (l fsLoader) load(s string) (secret, error) {
 
 	return secret{
 		Name:        name,
-		Value:       l.sanitize(secVal),
-		Description: l.sanitize(description),
-		Pattern:     l.sanitize(pattern),
+		Value:       sanitize(secVal, l.trim),
+		Description: sanitize(description, l.trim),
+		Pattern:     sanitize(pattern, l.trim),
 	}, nil
 }
 
 // responsible for establishing defaults etc.
-func newOptions(env map[string]string, prefix, rootDir string, trim bool) options {
+func doNewLoader(env map[string]string, prefix, rootDir string, trim bool) loader {
 	envSuffix := func(name string, defaultVal string) string {
 		suffix := strings.TrimLeft(env[name], ".")
 		if suffix == "" {
@@ -132,7 +122,16 @@ func newOptions(env map[string]string, prefix, rootDir string, trim bool) option
 		decryptMethod = method
 	}
 
-	return options{
+	if rootDir != "" {
+		root, err := filepath.Abs(rootDir)
+		if err != nil {
+			// nothing reasonable to do if no cwd
+			panic(err)
+		}
+		rootDir = root
+	}
+
+	return fsLoader{
 		secretSuffix:      envSuffix(secretEnvVar, defaults[secretEnvVar]),
 		descriptionSuffix: envSuffix(descriptionEnvVar, defaults[descriptionEnvVar]),
 		patternSuffix:     envSuffix(patternEnvVar, defaults[patternEnvVar]),
@@ -141,23 +140,6 @@ func newOptions(env map[string]string, prefix, rootDir string, trim bool) option
 		rootDir:           rootDir,
 		trim:              trim,
 	}
-}
-
-func doNewLoader(options options) (loader, error) {
-	resolve, e := makeResolve(options.rootDir)
-	if e != nil {
-		return nil, fmt.Errorf("unable to construct resolve func: %v", e)
-	}
-
-	return fsLoader{
-		secretSuffix:      options.secretSuffix,
-		descriptionSuffix: options.descriptionSuffix,
-		patternSuffix:     options.patternSuffix,
-		decryptCmd:        options.decryptCmd,
-		fsPrefix:          options.fsPrefix,
-		resolve:           resolve,
-		sanitize:          makeSanitize(options.trim),
-	}, nil
 }
 
 // reads a filename, but suppresses os not exist, so nonexistent file is
@@ -200,37 +182,6 @@ func envMap(environ []string) map[string]string {
 	return env
 }
 
-// constructs a simple optionally sanitizing function
-func makeSanitize(trim bool) func([]byte) string {
-	if trim {
-		return func(b []byte) string {
-			return strings.TrimFunc(string(b), unicode.IsSpace)
-		}
-	} else {
-		return func(b []byte) string {
-			return string(b)
-		}
-	}
-}
-
-// constructs a function which optionally joins a path with a root dir
-func makeResolve(rootDir string) (func(p string) string, error) {
-	if rootDir != "" {
-		root, err := filepath.Abs(rootDir)
-		if err != nil {
-			return nil, fmt.Errorf("error finding absolute path for %v: %v", rootDir, err)
-		}
-		return func(p string) string {
-			return path.Join(root, p)
-		}, nil
-	} else {
-		// no op
-		return func(p string) string {
-			return p
-		}, nil
-	}
-}
-
 // (/foo/bar/baz.gpg, (.gpg, .beep, .boop)) -> /foo/bar/baz
 func unextended(path string, extensions ...string) string {
 	for _, extension := range extensions {
@@ -239,4 +190,18 @@ func unextended(path string, extensions ...string) string {
 		}
 	}
 	return ""
+}
+
+func sanitize(p []byte, trim bool) string {
+	if trim {
+		return strings.TrimFunc(string(p), unicode.IsSpace)
+	}
+	return string(p)
+}
+
+func resolve(rootDir, p string) string {
+	if rootDir != "" {
+		return path.Join(rootDir, p)
+	}
+	return p
 }

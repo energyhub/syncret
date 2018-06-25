@@ -86,11 +86,6 @@ func run(loader loader, syncer syncer, paths []string) error {
 func main() {
 	flag.Parse()
 
-	loader, err := newLoader()
-	if err != nil {
-		log.Fatalf("Error creating fsLoader: %v", err)
-	}
-
 	var handler syncer
 	if *commit {
 		handler = newCommitter()
@@ -101,7 +96,7 @@ func main() {
 	paths := getPaths(os.Stdin, flag.Args())
 	log.Printf("Found %d paths", len(paths))
 
-	if err := run(loader, handler, paths); err != nil {
+	if err := run(newLoader(), handler, paths); err != nil {
 		log.Fatal(err)
 	}
 }
