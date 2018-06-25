@@ -37,6 +37,7 @@ func Test_loader_LoadAll(t *testing.T) {
 		descriptionSuffix string
 		patternSuffix     string
 		decryptCmd        string
+		fsPrefix          string
 	}
 	type args struct {
 		fnames []string
@@ -190,6 +191,41 @@ func Test_loader_LoadAll(t *testing.T) {
 			nil,
 			true,
 		},
+		{
+			"unknown extension is an error",
+			fields{
+				secretSuffix:      ".txt",
+				descriptionSuffix: ".description",
+				patternSuffix:     ".pattern",
+				decryptCmd:        "cat",
+			},
+			args{
+				[]string{"hi/test_path.txt.gz"},
+				map[string]string{
+					"hi/test_path.txt.gz": "a test secret",
+				},
+			},
+			nil,
+			true,
+		},
+		{
+			"missing prefix is an error",
+			fields{
+				secretSuffix:      ".txt",
+				descriptionSuffix: ".description",
+				patternSuffix:     ".pattern",
+				decryptCmd:        "cat",
+				fsPrefix:          "bar",
+			},
+			args{
+				[]string{"hi/test_path.txt"},
+				map[string]string{
+					"hi/test_path.txt.gz": "a test secret",
+				},
+			},
+			nil,
+			true,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -203,7 +239,9 @@ func Test_loader_LoadAll(t *testing.T) {
 				descriptionSuffix: tt.fields.descriptionSuffix,
 				patternSuffix:     tt.fields.patternSuffix,
 				decryptCmd:        tt.fields.decryptCmd,
-				rootDir:           tmpdir,
+				fsPrefix:          tt.fields.fsPrefix,
+				sanitize:          makeSanitize(false),
+				resolve:           mustMakeResolve(tmpdir),
 			}
 			got, err := l.LoadAll(tt.args.fnames)
 			if (err != nil) != tt.wantErr {
@@ -392,7 +430,15 @@ func Test_unextended(t *testing.T) {
 	}
 }
 
-func Test_newLoader(t *testing.T) {
+func mustMakeResolve(s string) func(s string) string {
+	resolve, e := makeResolve(s)
+	if e != nil {
+		panic(e)
+	}
+	return resolve
+}
+
+func Test_newOptions(t *testing.T) {
 	type args struct {
 		env     map[string]string
 		rootDir string
@@ -402,7 +448,7 @@ func Test_newLoader(t *testing.T) {
 	tests := []struct {
 		name    string
 		args    args
-		want    fsLoader
+		want    options
 		wantErr bool
 	}{
 		{
@@ -413,7 +459,7 @@ func Test_newLoader(t *testing.T) {
 				"",
 				true,
 			},
-			fsLoader{
+			options{
 				".gpg",
 				".description",
 				".pattern",
@@ -437,13 +483,13 @@ func Test_newLoader(t *testing.T) {
 				"blah/",
 				false,
 			},
-			fsLoader{
+			options{
 				".txt",
 				".desc",
 				".patt",
 				"gpg",
-				"/tmp",
 				"blah/",
+				"/tmp",
 				false,
 			},
 			false,
@@ -451,13 +497,142 @@ func Test_newLoader(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := newLoader(tt.args.env, tt.args.rootDir, tt.args.prefix, tt.args.trim)
+			got := newOptions(tt.args.env, tt.args.prefix, tt.args.rootDir, tt.args.trim)
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("doNewLoader() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func Test_envMap(t *testing.T) {
+	type args struct {
+		environ []string
+	}
+	tests := []struct {
+		name string
+		args args
+		want map[string]string
+	}{
+		{
+			"manages multiple equals",
+			args{[]string{
+				"value=blah=blah",
+			}},
+			map[string]string{
+				"value": "blah=blah",
+			},
+		},
+		{
+			"overwrites",
+			args{[]string{
+				"value=blah",
+				"value=blah=blah",
+			}},
+			map[string]string{
+				"value": "blah=blah",
+			},
+		},
+		{
+			"multi value",
+			args{[]string{
+				"value=blah",
+				"value1=blah=blah",
+			}},
+			map[string]string{
+				"value":  "blah",
+				"value1": "blah=blah",
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := envMap(tt.args.environ); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("envMap() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func Test_makeSanitize(t *testing.T) {
+	type args struct {
+		trim bool
+		s    []byte
+	}
+	tests := []struct {
+		name string
+		args args
+		want string
+	}{
+		{
+			"trims",
+			args{
+				true,
+				[]byte("abcd "),
+			},
+			"abcd",
+		},
+		{
+			"doesn't trim",
+			args{
+				false,
+				[]byte("abcd "),
+			},
+			"abcd ",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := makeSanitize(tt.args.trim)(tt.args.s); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("makeSanitize() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func Test_makeResolve(t *testing.T) {
+	type args struct {
+		rootDir string
+		p       string
+	}
+	tests := []struct {
+		name    string
+		args    args
+		want    string
+		wantErr bool
+	}{
+		{
+			"finds abs",
+			args{
+				"/tmp",
+				"blahblah",
+			},
+			"/tmp/blahblah",
+			false,
+		},
+		{
+			"no root dir",
+			args{
+				"",
+				"blahblah",
+			},
+			"blahblah",
+			false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gotFunc, err := makeResolve(tt.args.rootDir)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("newLoader() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("makeResolve() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("newLoader() = %v, want %v", got, tt.want)
+
+			if err != nil {
+				got := gotFunc(tt.args.p)
+				if !reflect.DeepEqual(got, tt.want) {
+					t.Errorf("makeResolve()(p) = %v, want %v", got, tt.want)
+				}
 			}
 		})
 	}

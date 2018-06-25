@@ -44,8 +44,8 @@ func Test_committer_Handle(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if err := tt.s.Handle(tt.args.secret); (err != nil) != tt.wantErr {
-				t.Errorf("committer.Handle() error = %v, wantErr %v", err, tt.wantErr)
+			if err := tt.s.Sync(tt.args.secret); (err != nil) != tt.wantErr {
+				t.Errorf("committer.Sync() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
 	}
@@ -88,7 +88,7 @@ func Test_makeInput(t *testing.T) {
 func Test_printer_Handle(t *testing.T) {
 	expected := "{\"name\":\"hi\"}\n"
 	buf := new(bytes.Buffer)
-	newPrinter(buf).Handle(secret{
+	newPrinter(buf).Sync(secret{
 		Name:  "hi",
 		Value: "should be suppressed",
 	})

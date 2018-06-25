@@ -5,56 +5,8 @@ import (
 	"io"
 	"reflect"
 	"testing"
+	"fmt"
 )
-
-func Test_envMap(t *testing.T) {
-	type args struct {
-		environ []string
-	}
-	tests := []struct {
-		name string
-		args args
-		want map[string]string
-	}{
-		{
-			"manages multiple equals",
-			args{[]string{
-				"value=blah=blah",
-			}},
-			map[string]string{
-				"value": "blah=blah",
-			},
-		},
-		{
-			"overwrites",
-			args{[]string{
-				"value=blah",
-				"value=blah=blah",
-			}},
-			map[string]string{
-				"value": "blah=blah",
-			},
-		},
-		{
-			"multi value",
-			args{[]string{
-				"value=blah",
-				"value1=blah=blah",
-			}},
-			map[string]string{
-				"value":  "blah",
-				"value1": "blah=blah",
-			},
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := envMap(tt.args.environ); !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("envMap() = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
 
 type mockLoader struct {
 	secrets []secret
@@ -65,34 +17,129 @@ func (m *mockLoader) LoadAll(paths []string) ([]secret, error) {
 	return m.secrets, m.e
 }
 
-type mockHandler struct {
-	handler
+type mockSyncer struct {
+	errors map[string]error
+	synced []string
+}
+
+func (m *mockSyncer) Sync(s secret) error {
+	if e := m.errors[s.Name]; e != nil {
+		return e
+	}
+	m.synced = append(m.synced, s.Name)
+	return nil
 }
 
 func Test_run(t *testing.T) {
 	type args struct {
-		loader  loader
-		in      io.Reader
-		handler handler
+		loader loader
+		in     io.Reader
+		syncer *mockSyncer
 	}
 	tests := []struct {
 		name    string
 		args    args
+		want    []string
 		wantErr bool
 	}{
 		{
 			"no paths no errors",
 			args{
-				loader:  &mockLoader{},
-				handler: mockHandler{},
+				loader: &mockLoader{},
+				syncer: &mockSyncer{
+					errors: make(map[string]error),
+					synced: make([]string, 0),
+				},
 			},
+			make([]string, 0),
+			false,
+		},
+		{
+			"errs on loader error",
+			args{
+				loader: &mockLoader{
+					e: fmt.Errorf("blah blah"),
+				},
+				syncer: &mockSyncer{
+					errors: make(map[string]error),
+					synced: make([]string, 0),
+				},
+			},
+			make([]string, 0),
+			true,
+		},
+		{
+			"propagates syncer error",
+			args{
+				loader: &mockLoader{
+					secrets: []secret{
+						{
+							Name: "hihihihi",
+						},
+					},
+				},
+				syncer: &mockSyncer{
+					errors: map[string]error{
+						"hihihihi": fmt.Errorf("found an error"),
+					},
+					synced: make([]string, 0),
+				},
+			},
+			make([]string, 0),
+			true,
+		},
+		{
+			"partial sync",
+			args{
+				loader: &mockLoader{
+					secrets: []secret{
+						{
+							Name: "synced",
+						},
+						{
+							Name: "fails",
+						},
+						{
+							Name: "not hit",
+						},
+					},
+				},
+				syncer: &mockSyncer{
+					errors: map[string]error{
+						"fails": fmt.Errorf("found an error"),
+					},
+					synced: make([]string, 0),
+				},
+			},
+			[]string{"synced"},
+			true,
+		},
+		{
+			"all sync",
+			args{
+				loader: &mockLoader{
+					secrets: []secret{
+						{
+							Name: "synced",
+						},
+					},
+				},
+				syncer: &mockSyncer{
+					errors: make(map[string]error),
+					synced: make([]string, 0),
+				},
+			},
+			[]string{"synced"},
 			false,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if err := run(tt.args.loader, tt.args.handler, []string{}); (err != nil) != tt.wantErr {
+			if err := run(tt.args.loader, tt.args.syncer, []string{}); (err != nil) != tt.wantErr {
 				t.Errorf("run() error = %v, wantErr %v", err, tt.wantErr)
+			}
+			if !reflect.DeepEqual(tt.want, tt.args.syncer.synced) {
+				t.Errorf("synced = %v, want %v", tt.args.syncer.synced, tt.want)
 			}
 		})
 	}

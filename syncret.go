@@ -7,15 +7,7 @@ import (
 	"io"
 	"log"
 	"os"
-	"strings"
 )
-
-type secret struct {
-	Name        string `json:"name"`
-	Value       string `json:"-"`
-	Description string `json:"description,omitempty"`
-	Pattern     string `json:"pattern,omitempty"`
-}
 
 const doc = `Usage of %s [FILE ...]:
 
@@ -28,17 +20,35 @@ If files are provided as arguments, they will be used; otherwise, paths will be 
 `
 
 var commit = flag.Bool("commit", false, "Sync changes to the parameter store rather than just printing metadata")
-var prefix = flag.String("prefix", "", "A prefix present in the FS but not in the parameter store")
-var trim = flag.Bool("trim", true, "Trim trailing whitespace from input data")
-var rootDir = flag.String("root", "", "Directory relative to which paths are interpreted")
+
+// the core struct; json serializable but drops value when so serialized.
+type secret struct {
+	Name        string `json:"name"`
+	Value       string `json:"-"`
+	Description string `json:"description,omitempty"`
+	Pattern     string `json:"pattern,omitempty"`
+}
+
+// "syncs" a secret, which either succeeds or fails with an error
+type syncer interface {
+	Sync(secret secret) error
+}
+
+// given a list of paths, return the secrets found within or an error
+// basically pulled out for testing
+type loader interface {
+	LoadAll(paths []string) ([]secret, error)
+}
 
 func init() {
+	// overwrite default usage text
 	flag.Usage = func() {
 		fmt.Fprintf(flag.CommandLine.Output(), doc, os.Args[0])
 		flag.PrintDefaults()
 	}
 }
 
+// get a list of paths, either from stdin or from CLI arguments
 func getPaths(in io.Reader, args []string) []string {
 	var paths []string
 	if len(args) > 0 {
@@ -52,18 +62,19 @@ func getPaths(in io.Reader, args []string) []string {
 	return paths
 }
 
-func run(loader loader, handler handler, paths []string) error {
+// given the paths, a loader, and a syncer, load the secret in each path and sync it
+func run(loader loader, syncer syncer, paths []string) error {
 	secrets, err := loader.LoadAll(paths)
 	if err != nil {
 		return err
 	}
 
 	if len(secrets) == 0 {
-		return nil
+		return nil // no op
 	}
 
 	for _, secret := range secrets {
-		if err := handler.Handle(secret); err != nil {
+		if err := syncer.Sync(secret); err != nil {
 			return err
 		}
 		log.Printf("Successfully synced: %s", secret.Name)
@@ -72,24 +83,15 @@ func run(loader loader, handler handler, paths []string) error {
 	return nil
 }
 
-func envMap(environ []string) map[string]string {
-	env := make(map[string]string)
-	for _, val := range environ {
-		parts := strings.SplitN(val, "=", 2)
-		env[parts[0]] = parts[1]
-	}
-	return env
-}
-
 func main() {
 	flag.Parse()
 
-	loader, err := newLoader(envMap(os.Environ()), *rootDir, *prefix, *trim)
+	loader, err := newLoader()
 	if err != nil {
 		log.Fatalf("Error creating fsLoader: %v", err)
 	}
 
-	var handler handler
+	var handler syncer
 	if *commit {
 		handler = newCommitter()
 	} else {

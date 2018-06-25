@@ -10,15 +10,25 @@ import (
 	"io"
 )
 
-type handler interface {
-	Handle(secret secret) error
+// return a new syncer which commits values to the SSM api
+func newCommitter() syncer {
+	return &committer{ssm.New(session.Must(session.NewSession()))}
 }
 
+// return a new syncer which writes secret metadata (not the value itself) to the provided writer
+func newPrinter(writer io.Writer) syncer {
+	encoder := json.NewEncoder(writer)
+	return &printer{
+		encoder,
+	}
+}
+
+// the "real" syncer -- commits the value to the SSM api
 type committer struct {
 	ssmiface.SSMAPI
 }
 
-func (s *committer) Handle(secret secret) error {
+func (s *committer) Sync(secret secret) error {
 	if _, err := s.PutParameter(makeInput(secret)); err != nil {
 		return fmt.Errorf("failed uploading %v: %v", secret.Name, err)
 	}
@@ -31,27 +41,21 @@ func makeInput(secret secret) *ssm.PutParameterInput {
 		AllowedPattern: &secret.Pattern,
 		Description:    &secret.Description,
 		Value:          &secret.Value,
+		// always overwrite
 		Overwrite:      aws.Bool(true),
+		// always secure
 		Type:           aws.String(ssm.ParameterTypeSecureString),
 		Name:           &secret.Name,
 	}
 }
 
-func newCommitter() handler {
-	return &committer{ssm.New(session.Must(session.NewSession()))}
-}
-
-func newPrinter(writer io.Writer) handler {
-	encoder := json.NewEncoder(writer)
-	return &printer{
-		encoder,
-	}
-}
-
+// a "syncer" which outputs secrets (excluding the actual secret value) as JSON
+// note that redaction behavior relies on `secret.Value` having a json name tag of '-' to
+// redact the value
 type printer struct {
 	*json.Encoder
 }
 
-func (s *printer) Handle(secret secret) error {
+func (s *printer) Sync(secret secret) error {
 	return s.Encode(secret)
 }
