@@ -41,10 +41,8 @@ func makeInput(secret secret) *ssm.PutParameterInput {
 		AllowedPattern: &secret.Pattern,
 		Description:    &secret.Description,
 		Value:          &secret.Value,
-		// always overwrite
-		Overwrite:      aws.Bool(true),
-		// always secure
-		Type:           aws.String(ssm.ParameterTypeSecureString),
+		Overwrite:      aws.Bool(true),                            // always overwrite
+		Type:           aws.String(ssm.ParameterTypeSecureString), // always secure
 		Name:           &secret.Name,
 	}
 }

@@ -2,10 +2,10 @@ package main
 
 import (
 	"bytes"
+	"fmt"
 	"io"
 	"reflect"
 	"testing"
-	"fmt"
 )
 
 type mockLoader struct {

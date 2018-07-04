@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"flag"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -10,7 +11,6 @@ import (
 	"path/filepath"
 	"strings"
 	"unicode"
-	"flag"
 )
 
 const (
@@ -33,7 +33,7 @@ var (
 )
 
 // instantiates a new loader from CLI flags and the OS environ
-func newLoader() (loader) {
+func newLoader() loader {
 	return doNewLoader(envMap(os.Environ()), *prefix, *rootDir, *trim)
 }
 
