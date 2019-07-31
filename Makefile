@@ -3,10 +3,6 @@
 clean:
 	rm -rf dist
 
-install:
-	go get -u github.com/kardianos/govendor
-	govendor sync
-
 test:
 	go test -coverprofile=coverage.out -v ./...
 
