@@ -7,8 +7,20 @@
 
 Sync encrypted secrets and their metadata from the local file system to AWS parameter store
 
+## Installation
 
-## Example:
+`go build` will make a binary `syncret` that you can run. If you want to make
+binaries for distribution, `make dist` will stick OSX and Linux binaries in the
+`dist/` folder.
+
+We're using Go modules so make sure you have Go 1.11 or higher.
+
+
+## Testing
+
+`make test` if you want coverage reporting, `go test` if you don't care about that.
+
+## Usage:
 Given the following file structure:
 ```
 secrets
@@ -48,6 +60,10 @@ They'll be accessible within the parameter store as:
 prod/my-service/DB_URL
 prod/my-service/SECRET_KEY
 ```
+
+`SYNCRET_DECRYPT` defaults to just `cat`, so if you want to test pushing an
+unencrypted parameter, you can just stick plaintext in your `foo.gpg` file and
+call it a day.
 
 ## decryption logic
 

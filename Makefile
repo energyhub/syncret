@@ -1,4 +1,4 @@
-.PHONY: clean install test dist
+.PHONY: clean test dist
 
 clean:
 	rm -rf dist
