@@ -14,5 +14,6 @@
 .idea/
 
 vendor/*/
+dist/
 
 coverage.out

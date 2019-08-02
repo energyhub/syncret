@@ -37,6 +37,11 @@ func (s *committer) Sync(secret secret) error {
 }
 
 func makeInput(secret secret) *ssm.PutParameterInput {
+	tier := aws.String("Standard")
+	// automatically bump to Advanced param if >4K in size
+	if len(secret.Value) > 4096 {
+		tier = aws.String("Advanced")
+	}
 	return &ssm.PutParameterInput{
 		AllowedPattern: &secret.Pattern,
 		Description:    &secret.Description,
@@ -44,6 +49,7 @@ func makeInput(secret secret) *ssm.PutParameterInput {
 		Overwrite:      aws.Bool(true),                            // always overwrite
 		Type:           aws.String(ssm.ParameterTypeSecureString), // always secure
 		Name:           &secret.Name,
+		Tier:           tier,
 	}
 }
 

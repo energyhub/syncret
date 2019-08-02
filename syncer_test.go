@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"reflect"
+	"strings"
 	"testing"
 
 	"bytes"
@@ -52,6 +53,7 @@ func Test_committer_Handle(t *testing.T) {
 }
 
 func Test_makeInput(t *testing.T) {
+	fiveThousandBytes := strings.Repeat("O, twenty characters", 250)
 	tests := []struct {
 		name   string
 		secret secret
@@ -72,6 +74,25 @@ func Test_makeInput(t *testing.T) {
 				Overwrite:      aws.Bool(true),
 				Type:           aws.String(ssm.ParameterTypeSecureString),
 				Value:          aws.String("secret value"),
+				Tier:           aws.String("Standard"),
+			},
+		},
+		{
+			"too big for standard parameter",
+			secret{
+				"/blah/blah/hi",
+				fiveThousandBytes,
+				"I am a description",
+				"^.*$",
+			},
+			&ssm.PutParameterInput{
+				AllowedPattern: aws.String("^.*$"),
+				Description:    aws.String("I am a description"),
+				Name:           aws.String("/blah/blah/hi"),
+				Overwrite:      aws.Bool(true),
+				Type:           aws.String(ssm.ParameterTypeSecureString),
+				Value:          aws.String(fiveThousandBytes),
+				Tier:           aws.String("Advanced"),
 			},
 		},
 	}
